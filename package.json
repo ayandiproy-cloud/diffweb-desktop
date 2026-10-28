@@ -2,7 +2,7 @@
   "name": "diffweb-desktop",
   "productName": "DiffWeb",
   "version": "1.0.0",
-  "description": "DiffWeb for Windows: private, end-to-end encrypted chat and sharing.",
+  "description": "DiffWeb",
   "author": "Solutionever Technologies",
   "license": "UNLICENSED",
   "private": true,
