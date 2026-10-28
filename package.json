@@ -1,0 +1,71 @@
+{
+  "name": "diffweb-desktop",
+  "productName": "DiffWeb",
+  "version": "1.0.0",
+  "description": "DiffWeb for Windows: private, end-to-end encrypted chat and sharing.",
+  "author": "Solutionever Technologies",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --x64 --publish never",
+    "release": "electron-builder --win nsis --x64 --publish always"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.diffweb.desktop",
+    "productName": "DiffWeb",
+    "copyright": "\u00a9 2026 DiffWeb. All rights reserved.",
+    "artifactName": "DiffWeb-Setup.exe",
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "offline.html",
+      "icon.png"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "DiffWeb",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ayandiproy-cloud",
+        "repo": "diffweb-desktop",
+        "releaseType": "release"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ayandiproy-cloud/diffweb-desktop.git"
+  }
+}
