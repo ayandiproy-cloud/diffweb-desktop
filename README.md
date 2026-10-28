@@ -4,6 +4,9 @@ A real Windows app (`DiffWeb-Setup.exe`) with an installer, Start menu and deskt
 a tray icon, "Start with Windows", and notifications. Inside, it opens https://diffweb.com in its app
 layout, so every website update reaches the app automatically.
 
+Screenshots, screen recording and screen sharing are blocked by default (the window shows black in them).
+Turn it off in **Me → Windows app → Block screenshots** or in the tray menu.
+
 ## Download
 
 https://github.com/ayandiproy-cloud/diffweb-desktop/releases/latest/download/DiffWeb-Setup.exe

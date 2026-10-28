@@ -6,11 +6,18 @@
 const { app, BrowserWindow, Menu, Tray, Notification, shell, session, nativeImage, dialog, ipcMain } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
+const fs = require('fs');
 
 const SITE = 'https://diffweb.com';
 const START = SITE + '/app/home?source=app';
 const ORIGIN = new URL(SITE).origin;
 const ICON = path.join(__dirname, 'icon.png');
+
+// Small settings file in the app's own folder. Screenshots are blocked unless the person turns it off.
+const SETTINGS = () => path.join(app.getPath('userData'), 'settings.json');
+function loadSettings() { try { return Object.assign({ blockShots: true }, JSON.parse(fs.readFileSync(SETTINGS(), 'utf8'))); } catch (e) { return { blockShots: true }; } }
+function saveSettings() { try { fs.writeFileSync(SETTINGS(), JSON.stringify(settings)); } catch (e) { /* ignore */ } }
+let settings = { blockShots: true };
 
 let win = null;
 let tray = null;
@@ -66,6 +73,9 @@ function createWindow() {
 
   // The website shows its app layout (side menu, no website header) when it sees this.
   win.webContents.setUserAgent(win.webContents.getUserAgent() + ' DiffWebDesktop/' + app.getVersion());
+
+  // Windows leaves this window out of screenshots, screen recording and screen sharing (it shows black there).
+  win.setContentProtection(!!settings.blockShots);
 
   win.once('ready-to-show', () => win.show());
   win.loadURL(START);
@@ -127,6 +137,17 @@ function checkUpdates() {
   return autoUpdater.checkForUpdates().then(() => upd).catch((e) => { sendUpd({ state: 'error', error: String(e.message || e).slice(0, 200) }); return upd; });
 }
 ipcMain.handle('dw:version', () => ({ version: app.getVersion(), update: upd }));
+function setBlockShots(on) {
+  settings.blockShots = !!on; saveSettings();
+  if (win) win.setContentProtection(settings.blockShots);
+  if (tray) buildTrayMenu();
+  if (win) win.webContents.send('dw:shots', settings.blockShots);
+  return settings.blockShots;
+}
+ipcMain.handle('dw:shots', (e, on) => {
+  if (!isOurs(e.senderFrame ? e.senderFrame.url : '')) return settings.blockShots;
+  return typeof on === 'boolean' ? setBlockShots(on) : settings.blockShots;
+});
 ipcMain.handle('dw:check', (e) => (isOurs(e.senderFrame ? e.senderFrame.url : '') ? checkUpdates() : upd));
 ipcMain.handle('dw:install', (e) => { if (upd.state === 'ready' && isOurs(e.senderFrame ? e.senderFrame.url : '')) { quitting = true; autoUpdater.quitAndInstall(); } return upd; });
 
@@ -142,6 +163,7 @@ function buildTrayMenu() {
     { label: updLabel(), enabled: upd.state !== 'checking' && upd.state !== 'downloading', click: () => (upd.state === 'ready' ? (quitting = true, autoUpdater.quitAndInstall()) : checkUpdates()) },
     { label: 'DiffWeb version ' + app.getVersion(), enabled: false },
     { type: 'separator' },
+    { label: 'Block screenshots', type: 'checkbox', checked: !!settings.blockShots, click: (i) => setBlockShots(i.checked) },
     { label: 'Start with Windows', type: 'checkbox', checked: login, click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked, args: ['--hidden'] }) },
     { label: 'Reload', click: () => win && win.webContents.reloadIgnoringCache() },
     { type: 'separator' },
@@ -175,6 +197,7 @@ async function checkNew() {
 }
 
 app.whenReady().then(() => {
+  settings = loadSettings();
   Menu.setApplicationMenu(null);
 
   // Allow only what DiffWeb needs: notifications, microphone (voice notes), clipboard. Camera and location are refused.
