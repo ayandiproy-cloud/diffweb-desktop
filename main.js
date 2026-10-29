@@ -77,8 +77,11 @@ function createWindow() {
   // Windows leaves this window out of screenshots, screen recording and screen sharing (it shows black there).
   win.setContentProtection(!!settings.blockShots);
 
-  win.once('ready-to-show', () => win.show());
-  win.loadURL(START);
+  // Open at once: a small DiffWeb screen shows straight away (it's inside the app, so no waiting),
+  // and stays until diffweb.com is ready to paint. Before, the window only appeared after the site loaded.
+  const hidden = process.argv.includes('--hidden');
+  win.once('ready-to-show', () => { if (!hidden) win.show(); });
+  win.loadFile(path.join(__dirname, 'splash.html')).then(() => win && !win.isDestroyed() && win.loadURL(START)).catch(() => win && win.loadURL(START));
 
   // Only diffweb.com opens inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -86,12 +89,12 @@ function createWindow() {
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (e, url) => {
-    if (!isOurs(url)) { e.preventDefault(); openOutside(url); }
+    if (!isOurs(url) && !/^file:/.test(url)) { e.preventDefault(); openOutside(url); }
   });
 
   // No internet: a friendly page with a Try again button.
   win.webContents.on('did-fail-load', (e, code, desc, url, isMain) => {
-    if (isMain && code !== -3) win.loadFile(path.join(__dirname, 'offline.html'));
+    if (isMain && code !== -3 && /^https?:/.test(url || '')) win.loadFile(path.join(__dirname, 'offline.html'));
   });
 
   // Right-click: cut, copy, paste.
@@ -133,6 +136,7 @@ autoUpdater.on('update-downloaded', (i) => {
 });
 autoUpdater.on('error', (e) => sendUpd({ state: 'error', error: String((e && e.message) || e).slice(0, 200) }));
 function checkUpdates() {
+  if (process.windowsStore) { sendUpd({ state: 'latest' }); return Promise.resolve(upd); } // the Store updates it
   if (!app.isPackaged) { sendUpd({ state: 'latest' }); return Promise.resolve(upd); }
   return autoUpdater.checkForUpdates().then(() => upd).catch((e) => { sendUpd({ state: 'error', error: String(e.message || e).slice(0, 200) }); return upd; });
 }
@@ -209,7 +213,6 @@ app.whenReady().then(() => {
 
   createWindow();
   buildTray();
-  if (process.argv.includes('--hidden') && win) win.once('ready-to-show', () => win.hide());
   setInterval(checkNew, 60 * 1000);
   setTimeout(checkUpdates, 10 * 1000);             // shortly after opening
   setInterval(checkUpdates, 6 * 60 * 60 * 1000);   // and every 6 hours
