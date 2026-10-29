@@ -120,6 +120,18 @@ function sendUpd(patch) {
   if (win && !win.isDestroyed()) win.webContents.send('dw:update', upd);
   if (tray) buildTrayMenu();
 }
+// Restart now: close the window and tray first (otherwise the tray keeps DiffWeb alive and the
+// window freezes), then install quietly and open DiffWeb again by itself. No installer wizard.
+let installing = false;
+function installNow() {
+  if (installing) return;
+  installing = true; quitting = true;
+  setImmediate(() => {
+    try { if (tray) { tray.destroy(); tray = null; } } catch (e) { }
+    BrowserWindow.getAllWindows().forEach((w) => { try { w.removeAllListeners('close'); w.destroy(); } catch (e) { } });
+    try { autoUpdater.quitAndInstall(true, true); } catch (e) { app.exit(0); }
+  });
+}
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 autoUpdater.on('checking-for-update', () => sendUpd({ state: 'checking', error: '' }));
@@ -130,7 +142,7 @@ autoUpdater.on('update-downloaded', (i) => {
   sendUpd({ state: 'ready', version: i.version });
   if (Notification.isSupported()) {
     const n = new Notification({ title: 'DiffWeb update ready', body: 'Version ' + i.version + ' is ready. Restart DiffWeb to finish.', icon: ICON });
-    n.on('click', () => { quitting = true; autoUpdater.quitAndInstall(); });
+    n.on('click', installNow);
     n.show();
   }
 });
@@ -153,7 +165,7 @@ ipcMain.handle('dw:shots', (e, on) => {
   return typeof on === 'boolean' ? setBlockShots(on) : settings.blockShots;
 });
 ipcMain.handle('dw:check', (e) => (isOurs(e.senderFrame ? e.senderFrame.url : '') ? checkUpdates() : upd));
-ipcMain.handle('dw:install', (e) => { if (upd.state === 'ready' && isOurs(e.senderFrame ? e.senderFrame.url : '')) { quitting = true; autoUpdater.quitAndInstall(); } return upd; });
+ipcMain.handle('dw:install', (e) => { if (upd.state === 'ready' && isOurs(e.senderFrame ? e.senderFrame.url : '')) installNow(); return upd; });
 
 function updLabel() {
   return upd.state === 'checking' ? 'Checking for updates…' : upd.state === 'downloading' ? 'Downloading update ' + (upd.percent || 0) + '%' :
@@ -164,7 +176,7 @@ function buildTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate([
     { label: 'Open DiffWeb', click: show },
     { type: 'separator' },
-    { label: updLabel(), enabled: upd.state !== 'checking' && upd.state !== 'downloading', click: () => (upd.state === 'ready' ? (quitting = true, autoUpdater.quitAndInstall()) : checkUpdates()) },
+    { label: updLabel(), enabled: upd.state !== 'checking' && upd.state !== 'downloading', click: () => (upd.state === 'ready' ? installNow() : checkUpdates()) },
     { label: 'DiffWeb version ' + app.getVersion(), enabled: false },
     { type: 'separator' },
     { label: 'Block screenshots', type: 'checkbox', checked: !!settings.blockShots, click: (i) => setBlockShots(i.checked) },
