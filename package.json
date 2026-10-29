@@ -10,7 +10,8 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win nsis --x64 --publish never",
-    "release": "electron-builder --win nsis --x64 --publish always"
+    "release": "electron-builder --win nsis appx --x64 --publish always || electron-builder --win nsis --x64 --publish always",
+    "store": "electron-builder --win appx --x64 --publish never"
   },
   "devDependencies": {
     "electron": "33.2.1",
@@ -19,7 +20,7 @@
   "build": {
     "appId": "com.diffweb.desktop",
     "productName": "DiffWeb",
-    "copyright": "\u00a9 2026 DiffWeb. All rights reserved.",
+    "copyright": "© 2026 DiffWeb. All rights reserved.",
     "artifactName": "DiffWeb-Setup.exe",
     "directories": {
       "output": "dist",
@@ -51,7 +52,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "DiffWeb",
       "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "DiffWeb-Setup.exe"
     },
     "publish": [
       {
@@ -60,7 +62,19 @@
         "repo": "diffweb-desktop",
         "releaseType": "release"
       }
-    ]
+    ],
+    "appx": {
+      "identityName": "SolutioneverTechnologies.DiffWeb",
+      "publisher": "CN=1077E7F9-FA87-4345-82C7-CD2AA9E42B2B",
+      "publisherDisplayName": "Solutionever Technologies",
+      "applicationId": "DiffWeb",
+      "displayName": "DiffWeb",
+      "backgroundColor": "#4f46e5",
+      "languages": [
+        "en-US"
+      ],
+      "artifactName": "DiffWeb-Store-${version}.${ext}"
+    }
   },
   "dependencies": {
     "electron-updater": "6.3.9"
