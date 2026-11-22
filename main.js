@@ -36,6 +36,14 @@ function isOurs(u) {
   try { return new URL(u).origin === ORIGIN; } catch (e) { return false; }
 }
 
+// Payment pages allowed inside the app (DiffWeb Plus on the website: Razorpay in India, PayPal elsewhere).
+function isPay(u) {
+  try {
+    const h = new URL(u).hostname;
+    return new URL(u).protocol === 'https:' && /(^|\.)(razorpay\.com|paypal\.com|paypalobjects\.com)$/.test(h);
+  } catch (e) { return false; }
+}
+
 function openOutside(u) {
   try {
     const x = new URL(u);
@@ -83,13 +91,28 @@ function createWindow() {
   win.once('ready-to-show', () => { if (!hidden) win.show(); });
   win.loadFile(path.join(__dirname, 'splash.html')).then(() => win && !win.isDestroyed() && win.loadURL(START)).catch(() => win && win.loadURL(START));
 
-  // Only diffweb.com opens inside the app.
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (isOurs(url)) { win.loadURL(url); } else { openOutside(url); }
+  // Only diffweb.com opens inside the app, plus the payment pages for DiffWeb Plus: Razorpay or PayPal, and the
+  // bank's OTP / card check they send you to. After paying, the payment company sends you back to diffweb.com.
+  // (Before, the payment page was sent to the browser, so buying Plus in the Windows app never finished.)
+  let paying = false;
+  win.webContents.setWindowOpenHandler(({ url, referrer }) => {
+    if (isOurs(url)) { win.loadURL(url); return { action: 'deny' }; }
+    if (paying || isPay(url) || isPay(referrer && referrer.url)) {
+      return { action: 'allow', overrideBrowserWindowOptions: {
+        parent: win, width: 520, height: 760, autoHideMenuBar: true, icon: ICON, title: 'Secure payment',
+        webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true },
+      } };
+    }
+    openOutside(url);
     return { action: 'deny' };
   });
   win.webContents.on('will-navigate', (e, url) => {
-    if (!isOurs(url) && !/^file:/.test(url)) { e.preventDefault(); openOutside(url); }
+    if (isOurs(url)) { paying = false; return; }
+    if (/^file:/.test(url)) return;
+    if (isPay(url)) { paying = true; return; }
+    if (paying && /^https:/.test(url)) return; // the bank's card check during a payment
+    e.preventDefault();
+    openOutside(url);
   });
 
   // No internet: a friendly page with a Try again button.
